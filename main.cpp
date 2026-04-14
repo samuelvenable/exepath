@@ -27,24 +27,129 @@
 // OpenBSD Current Executable Path Name Implementation
 // Compile: clang++ main.cpp -o a.out -std=c++17 -lkvm
 // libkvm comes with OpenBSD; no additional dependency
+// Update 4/13/2026: now includes many other platforms
 
 #include <string>
-#include <sstream>
+#include <cerrno> // errno
+#include <cstdio> // printf(...)
+#include <cstring> // strerror(...)
+#if defined(_WIN32)
 #include <vector>
-
-#include <cstdio>
-#include <cerrno>
-#include <cstring>
 #include <cstddef>
 #include <cstdlib>
-
-#include <sys/stat.h>
+#include <stringapiset.h>
+#include <libloaderapi.h>
+#if !defined(MAX_PATH) 
+#define MAX_PATH 260
+#endif
+#elif (defined(__APPLE__) && defined(__MACH__))
+#include <climits>
+#include <cstdlib>
+#include <libproc.h>
+#include <unistd.h>
+#elif defined(__linux__)
+#include <climits>
+#include <cstdlib>
+#elif defined(__FreeBSD__)
+#include <cstddef>
+#include <climits>
+#include <cstdlib>
 #include <sys/sysctl.h>
+#elif defined(__DragonFly__)
+#include <cstddef>
+#include <climits>
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#elif defined(__NetBSD__)
+#include <cstddef>
+#include <climits>
+#include <cstdlib>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#elif defined(__OpenBSD__)
+#include <vector>
+#include <sstream>
+#include <cstddef>
+#include <climits>
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <kvm.h>
 
+#elif defined(__sun)
+#include <climits>
+#include <cstdlib>
+#endif
+
 std::string get_executable_path() {
   std::string path;
+  #if defined(_WIN32)
+  auto narrow = [](std::wstring wstr) {
+    if (wstr.empty()) return std::string("");
+    int nbytes = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), nullptr, 0, nullptr, nullptr);
+    std::vector<char> buf(nbytes);
+    return std::string { buf.data(), (std::size_t)WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), buf.data(), nbytes, nullptr, nullptr) };
+  };
+  wchar_t buffer[MAX_PATH];
+  if (GetModuleFileNameW(nullptr, buffer, sizeof(buffer)) != 0) {
+    wchar_t exe[MAX_PATH];
+    if (_wfullpath(exe, buffer, MAX_PATH)) {
+      path = narrow(exe);
+    }
+  }
+  #elif (defined(__APPLE__) && defined(__MACH__))
+  char exe[PROC_PIDPATHINFO_MAXSIZE];
+  if (proc_pidpath(getpid(), exe, sizeof(exe)) > 0) {
+    char buffer[PATH_MAX];
+    if (realpath(exe, buffer)) {
+      path = buffer;
+    }
+  }
+  #elif defined(__linux__)
+  char exe[PATH_MAX];
+  if (realpath("/proc/self/exe", exe)) {
+    path = exe;
+  }
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+  int mib[4]; 
+  std::size_t len = 0;
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_PATHNAME;
+  mib[3] = -1;
+  if (sysctl(mib, 4, nullptr, &len, nullptr, 0) == 0) {
+    std::string strbuff;
+    strbuff.resize(len, '\0');
+    char *exe = strbuff.data();
+    if (sysctl(mib, 4, exe, &len, nullptr, 0) == 0) {
+      char buffer[PATH_MAX];
+      if (realpath(exe, buffer)) {
+        path = buffer;
+      }
+    }
+  }
+  #elif defined(__NetBSD__)
+  int mib[4]; 
+  std::size_t len = 0;
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC_ARGS;
+  mib[2] = -1;
+  mib[3] = KERN_PROC_PATHNAME;
+  if (sysctl(mib, 4, nullptr, &len, nullptr, 0) == 0) {
+    std::string strbuff;
+    strbuff.resize(len, '\0');
+    char *exe = strbuff.data();
+    if (sysctl(mib, 4, exe, &len, nullptr, 0) == 0) {
+      char buffer[PATH_MAX];
+      if (realpath(exe, buffer)) {
+        path = buffer;
+      }
+    }
+  }
+  #elif defined(__OpenBSD__)
   auto is_exe = [](std::string exe) {
     int cntp = 0;
     std::string res;
@@ -167,6 +272,12 @@ std::string get_executable_path() {
   if (!path.empty()) {
     errno = 0;
   }
+  #elif defined(__sun)
+  char exe[PATH_MAX];
+  if (realpath("/proc/self/path/a.out", exe)) {
+    path = exe;
+  }
+  #endif
   return path;
 }
 
