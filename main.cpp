@@ -78,7 +78,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <kvm.h>
-
 #elif defined(__sun)
 #include <climits>
 #include <cstdlib>
