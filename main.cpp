@@ -24,11 +24,6 @@
  
 */
 
-// OpenBSD Current Executable Path Name Implementation
-// Compile: clang++ main.cpp -o a.out -std=c++17 -lkvm
-// libkvm comes with OpenBSD; no additional dependency
-// Update 4/13/2026: now includes many other platforms
-
 #include "exe.hpp"
 #include <cerrno> // errno
 #include <cstdio> // printf(...)
