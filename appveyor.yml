@@ -1,3 +1,3 @@
 build_script:
-  - set PATH=C:\projects\exe-path;C:\msys64;C:\msys64\mingw64\bin;C:\msys64\usr\local\bin;C:\msys64\usr\bin;%PATH%
-  - C:\msys64\msys2_shell.cmd -defterm -mingw64 -no-start -here -lc "sh C:/projects/exe-path/build.sh"
+  - set PATH=C:\projects\exepath;C:\msys64;C:\msys64\mingw64\bin;C:\msys64\usr\local\bin;C:\msys64\usr\bin;%PATH%
+  - C:\msys64\msys2_shell.cmd -defterm -mingw64 -no-start -here -lc "sh C:/projects/exepath/build.sh"
