@@ -79,6 +79,8 @@
 #elif defined(__sun)
 #include <climits>
 #include <cstdlib>
+#include <libproc.h>
+#include <unistd.h>
 #endif
 
 std::string get_executable_path(int process_id) {
@@ -382,7 +384,23 @@ std::string get_executable_path(int process_id) {
     errno = 0;
   }
   #elif defined(__sun)
+  int err = 0;
   char exe[PATH_MAX];
+  struct ps_prochandle *P = Pgrab((process_id == -1) ? getpid() : process_id, PGRAB_RDONLY, &err);
+  if (P) {
+    if (!err && !errno) {
+      char buffer[PATH_MAX];
+      if (Pexecname(P, buffer, sizeof(buffer))) {
+        if (realpath(buffer, exe)) {
+          path = exe;
+        }
+      }
+    }
+    Pfree(P);
+  }
+  if (!path.empty()) {
+    goto finish;
+  }
   if (process_id == -1) {
     if (realpath("/proc/self/path/a.out", exe)) {
       path = exe;
@@ -393,6 +411,7 @@ std::string get_executable_path(int process_id) {
       path = exe;
     }
   }
+  finish:
   #endif
   return path;
 }
