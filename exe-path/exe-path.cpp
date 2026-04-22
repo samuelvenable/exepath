@@ -29,6 +29,7 @@
 #include <vector>
 #include <cstddef>
 #include <cstdlib>
+#include <windef.h>
 #include <stringapiset.h>
 #include <processthreadsapi.h>
 #include <securitybaseapi.h>
@@ -36,7 +37,6 @@
 #include <handleapi.h>
 #include <winbase.h>
 #include <intsafe.h>
-#include <windef.h>
 #include <winnt.h>
 #include <ntdef.h>
 #elif (defined(__APPLE__) && defined(__MACH__))
