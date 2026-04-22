@@ -158,9 +158,6 @@ std::string get_executable_path(int process_id) {
       path = exe;
     }
   }
-  if (errno == ENOENT) {
-    errno = ESRCH;
-  }
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
   int mib[4]; 
   std::size_t len = 0;
@@ -377,9 +374,6 @@ std::string get_executable_path(int process_id) {
       std::string("/path/a.out")).c_str(), exe)) {
       path = exe;
     }
-  }
-  if (errno == ENOENT) {
-    errno = ESRCH;
   }
   #endif
   return path;
