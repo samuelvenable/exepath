@@ -195,6 +195,9 @@ std::string get_executable_path(int process_id) {
     }
   }
   #elif defined(__OpenBSD__)
+  if (process_id == -1) {
+    process_id = getpid();
+  }
   auto is_exe = [](int process_id, std::string exe) {
     int cntp = 0;
     std::string res;
@@ -203,8 +206,7 @@ std::string get_executable_path(int process_id) {
     bool error = false;
     kd = kvm_openfiles(nullptr, nullptr, nullptr, KVM_NO_FILES, nullptr);
     if (!kd) return res;
-    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, 
-      (process_id == -1) ? getpid() : process_id, sizeof(struct kinfo_file), &cntp))) {
+    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, process_id, sizeof(struct kinfo_file), &cntp))) {
       for (int i = 0; i < cntp && kif[i].fd_fd < 0; i++) {
         if (kif[i].fd_fd == KERN_FILE_TEXT) {
           struct stat st;
