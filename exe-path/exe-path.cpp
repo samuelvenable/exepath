@@ -195,9 +195,6 @@ std::string get_executable_path(int process_id) {
     }
   }
   #elif defined(__OpenBSD__)
-  if (process_id == -1) {
-    process_id = getpid();
-  }
   auto is_exe = [](int process_id, std::string exe) {
     int cntp = 0;
     std::string res;
@@ -206,7 +203,7 @@ std::string get_executable_path(int process_id) {
     bool error = false;
     kd = kvm_openfiles(nullptr, nullptr, nullptr, KVM_NO_FILES, nullptr);
     if (!kd) return res;
-    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, process_id, sizeof(struct kinfo_file), &cntp))) {
+    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, (process_id == -1) ? getpid() : process_id, sizeof(struct kinfo_file), &cntp))) {
       for (int i = 0; i < cntp && kif[i].fd_fd < 0; i++) {
         if (kif[i].fd_fd == KERN_FILE_TEXT) {
           struct stat st;
@@ -294,7 +291,7 @@ std::string get_executable_path(int process_id) {
     path.clear();
     return path;
   }
-  if ((process_info = kvm_getprocs(kd, KERN_PROC_PID, getpid(), sizeof(struct kinfo_proc), &cntp))) {
+  if ((process_info = kvm_getprocs(kd, KERN_PROC_PID, (process_id == -1) ? getpid() : process_id, sizeof(struct kinfo_proc), &cntp))) {
     char **cmd = kvm_getargv(kd, process_info, 0);
     if (cmd) {
       for (int i = 0; cmd[i]; i++) {
@@ -346,10 +343,27 @@ std::string get_executable_path(int process_id) {
           path = is_exe(process_id, argv0);
         }
         if (path.empty()) {
-          char cwd[PATH_MAX];
-          if (getcwd(cwd, PATH_MAX)) {
-            argv0 = std::string(cwd) + "/" + buffer[0];
-            path = is_exe(process_id, argv0);
+          if (process_id == -1) {
+            char cwd[PATH_MAX];
+            if (getcwd(cwd, PATH_MAX)) {
+              argv0 = std::string(cwd) + "/" + buffer[0];
+              path = is_exe(getpid(), argv0);
+            }
+          } else {
+            int mib[3];
+            std::size_t len = 0;
+            mib[0] = CTL_KERN;
+            mib[1] = KERN_PROC_CWD;
+            mib[2] = process_id;
+            if (!sysctl(mib, 3, nullptr, &len, nullptr, 0)) {
+              std::vector<char> vecbuff;
+              vecbuff.resize(len);
+              char *cwd = &vecbuff[0];
+              if (!sysctl(mib, 3, cwd, &len, nullptr, 0)) {
+                argv0 = std::string(cwd) + "/" + buffer[0];
+                path = is_exe(process_id, argv0);
+              }
+            }
           }
         }
       }
