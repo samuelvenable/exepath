@@ -30,10 +30,15 @@
 #include <cstddef>
 #include <cstdlib>
 #include <stringapiset.h>
+#include <processthreadsapi.h>
+#include <securitybaseapi.h>
 #include <libloaderapi.h>
-#if !defined(MAX_PATH) 
-#define MAX_PATH 260
-#endif
+#include <handleapi.h>
+#include <winbase.h>
+#include <intsafe.h>
+#include <windef.h>
+#include <winnt.h>
+#include <ntdef.h>
 #elif (defined(__APPLE__) && defined(__MACH__))
 #include <climits>
 #include <cstdlib>
@@ -76,8 +81,11 @@
 #include <cstdlib>
 #endif
 
-std::string get_executable_path() {
+std::string get_executable_path(int process_id) {
   std::string path;
+  if (process_id < -1) {
+    return path;
+  }
   #if defined(_WIN32)
   auto narrow = [](std::wstring wstr) {
     if (wstr.empty()) return std::string("");
@@ -85,16 +93,53 @@ std::string get_executable_path() {
     std::vector<char> buf(nbytes);
     return std::string { buf.data(), (std::size_t)WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), buf.data(), nbytes, nullptr, nullptr) };
   };
-  wchar_t buffer[MAX_PATH];
-  if (GetModuleFileNameW(nullptr, buffer, sizeof(buffer)) != 0) {
-    wchar_t exe[MAX_PATH];
-    if (_wfullpath(exe, buffer, MAX_PATH)) {
-      path = narrow(exe);
+  auto open_process_with_debug_privilege = [](int process_id) {
+    HANDLE proc = nullptr;
+    HANDLE hToken = nullptr;
+    LUID luid;
+    TOKEN_PRIVILEGES tkp;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
+      if (LookupPrivilegeValueW(nullptr, SE_DEBUG_NAME, &luid)) {
+        tkp.PrivilegeCount = 1;
+        tkp.Privileges[0].Luid = luid;
+        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        if (AdjustTokenPrivileges(hToken, false, &tkp, sizeof(tkp), nullptr, nullptr)) {
+          proc = OpenProcess(PROCESS_ALL_ACCESS, false, (DWORD)process_id);
+        }
+      }
+      CloseHandle(hToken);
     }
+    if (!proc) {
+      proc = OpenProcess(PROCESS_ALL_ACCESS, false, (DWORD)process_id);
+    }
+    return proc;
+  };
+  if (process_id == -1) {
+    wchar_t buffer[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, buffer, sizeof(buffer))) {
+      wchar_t exe[MAX_PATH];
+      if (_wfullpath(exe, buffer, MAX_PATH)) {
+        path = narrow(exe);
+      }
+    }
+  } else {
+    HANDLE proc = open_process_with_debug_privilege(process_id);
+    if (!proc) { 
+      return path;
+    }
+    wchar_t buffer[MAX_PATH];
+    DWORD size = sizeof(buffer);
+    if (QueryFullProcessImageNameW(proc, 0, buffer, &size)) {
+      wchar_t exe[MAX_PATH];
+      if (_wfullpath(exe, buffer, MAX_PATH)) {
+        path = narrow(exe);
+      }
+    }
+    CloseHandle(proc);
   }
   #elif (defined(__APPLE__) && defined(__MACH__))
   char exe[PROC_PIDPATHINFO_MAXSIZE];
-  if (proc_pidpath(getpid(), exe, sizeof(exe)) > 0) {
+  if (proc_pidpath((process_id == -1) ? getpid() : process_id, exe, sizeof(exe)) > 0) {
     char buffer[PATH_MAX];
     if (realpath(exe, buffer)) {
       path = buffer;
@@ -102,8 +147,15 @@ std::string get_executable_path() {
   }
   #elif defined(__linux__)
   char exe[PATH_MAX];
-  if (realpath("/proc/self/exe", exe)) {
-    path = exe;
+  if (process_id == -1) {
+    if (realpath("/proc/self/exe", exe)) {
+      path = exe;
+    }
+  } else {
+    if (realpath((std::string("/proc/") + std::to_string(process_id) + 
+      std::string("/exe")).c_str(), exe)) {
+      path = exe;
+    }
   }
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
   int mib[4]; 
@@ -111,7 +163,7 @@ std::string get_executable_path() {
   mib[0] = CTL_KERN;
   mib[1] = KERN_PROC;
   mib[2] = KERN_PROC_PATHNAME;
-  mib[3] = -1;
+  mib[3] = process_id;
   if (sysctl(mib, 4, nullptr, &len, nullptr, 0) == 0) {
     std::string strbuff;
     strbuff.resize(len, '\0');
@@ -128,7 +180,7 @@ std::string get_executable_path() {
   std::size_t len = 0;
   mib[0] = CTL_KERN;
   mib[1] = KERN_PROC_ARGS;
-  mib[2] = -1;
+  mib[2] = process_id;
   mib[3] = KERN_PROC_PATHNAME;
   if (sysctl(mib, 4, nullptr, &len, nullptr, 0) == 0) {
     std::string strbuff;
@@ -150,7 +202,8 @@ std::string get_executable_path() {
     bool error = false;
     kd = kvm_openfiles(nullptr, nullptr, nullptr, KVM_NO_FILES, nullptr);
     if (!kd) return res;
-    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, getpid(), sizeof(struct kinfo_file), &cntp))) {
+    if ((kif = kvm_getfiles(kd, KERN_FILE_BYPID, 
+      (process_id == -1) ? getpid() : process_id, sizeof(struct kinfo_file), &cntp))) {
       for (int i = 0; i < cntp && kif[i].fd_fd < 0; i++) {
         if (kif[i].fd_fd == KERN_FILE_TEXT) {
           struct stat st;
@@ -176,14 +229,59 @@ std::string get_executable_path() {
     kvm_close(kd);
     return res;
   };
-  auto cppstr_getenv = [](std::string name) {
-    const char *cresult = getenv(name.c_str());
-    std::string result = cresult ? cresult : "";
-    return result;
+  auto envvar_value_from_process_id = [](int process_id, std::string name) {
+    if (process_id == -1) {
+      const char *cvalue = getenv(name.c_str());
+      return cvalue ? cvalue : "";
+    }
+    auto environ_from_process_id = [](int process_id) {
+      int cntp = 0;
+      kvm_t *kd = nullptr;
+      kinfo_proc *process_info = nullptr;
+      kd = kvm_openfiles(nullptr, nullptr, nullptr, KVM_NO_FILES, nullptr);
+      if (!kd) {
+        return vec;
+      }
+      if ((process_info = kvm_getprocs(kd, KERN_PROC_PID, process_id, sizeof(struct kinfo_proc), &cntp))) {
+        char **env = kvm_getenvv(kd, process_info, 0);
+        if (env) {
+          for (int i = 0; env[i]; i++) {
+            vec.push_back(env[i]);
+          }
+        }
+      }
+      kvm_close(kd);
+    };
+    auto string_split_by_first_equals_sign = [](std::string str) {
+      std::size_t pos = 0;
+      std::vector<std::string> vec;
+      if ((pos = str.find_first_of("=")) != std::string::npos) {
+        vec.push_back(str.substr(0, pos));
+        vec.push_back(str.substr(pos + 1));
+      }
+      return vec;
+    };
+    std::string value;
+    if (name.empty()) {
+      return value;
+    }
+    std::vector<std::string> vec = environ_from_process_id(process_id);
+    if (!vec.empty()) {
+      for (std::size_t i = 0; i < vec.size(); i++) {
+        std::vector<std::string> equalssplit = string_split_by_first_equals_sign(vec[i]);
+        if (equalssplit.size() == 2) {
+          if (equalssplit[0] == name) {
+            value = equalssplit[1];
+            break;
+          }
+        }
+      }
+    }
+    return value;
   };
   int cntp = 0;
   kvm_t *kd = nullptr;
-  kinfo_proc *proc_info = nullptr;
+  kinfo_proc *process_info = nullptr;
   std::vector<std::string> buffer;
   bool error = false, retried = false;
   kd = kvm_openfiles(nullptr, nullptr, nullptr, KVM_NO_FILES, nullptr);
@@ -191,8 +289,8 @@ std::string get_executable_path() {
     path.clear();
     return path;
   }
-  if ((proc_info = kvm_getprocs(kd, KERN_PROC_PID, getpid(), sizeof(struct kinfo_proc), &cntp))) {
-    char **cmd = kvm_getargv(kd, proc_info, 0);
+  if ((process_info = kvm_getprocs(kd, KERN_PROC_PID, getpid(), sizeof(struct kinfo_proc), &cntp))) {
+    char **cmd = kvm_getargv(kd, process_info, 0);
     if (cmd) {
       for (int i = 0; cmd[i]; i++) {
         buffer.push_back(cmd[i]);
@@ -210,7 +308,7 @@ std::string get_executable_path() {
         argv0 = buffer[0];
         path = is_exe(argv0);
       } else if (slash_pos == std::string::npos || slash_pos > colon_pos) { 
-        std::string penv = cppstr_getenv("PATH");
+        std::string penv = envvar_value_from_process_id("PATH");
         if (!penv.empty()) {
           retry:
           std::string tmp;
@@ -229,7 +327,7 @@ std::string get_executable_path() {
         if (path.empty() && !retried) {
           retried = true;
           penv = "/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11R6/bin:/usr/local/bin:/usr/local/sbin";
-          std::string home = cppstr_getenv("HOME");
+          std::string home = envvar_value_from_process_id("HOME");
           if (!home.empty()) {
             penv = home + "/bin:" + penv;
           }
@@ -237,7 +335,7 @@ std::string get_executable_path() {
         }
       }
       if (path.empty() && slash_pos > 0) {
-        std::string pwd = cppstr_getenv("PWD");
+        std::string pwd = envvar_value_from_process_id("PWD");
         if (!pwd.empty()) {
           argv0 = pwd + "/" + buffer[0];
           path = is_exe(argv0);
@@ -254,7 +352,7 @@ std::string get_executable_path() {
     if (path.empty() && !error) {
       error = true;
       buffer.clear();
-      std::string underscore = cppstr_getenv("_");
+      std::string underscore = envvar_value_from_process_id("_");
       if (!underscore.empty()) {
         buffer.push_back(underscore);
         goto fallback;
@@ -266,8 +364,15 @@ std::string get_executable_path() {
   }
   #elif defined(__sun)
   char exe[PATH_MAX];
-  if (realpath("/proc/self/path/a.out", exe)) {
-    path = exe;
+  if (process_id == -1) {
+    if (realpath("/proc/self/path/a.out", exe)) {
+      path = exe;
+    }
+  } else {
+    if (realpath((std::string("/proc/") + std::to_string(process_id) + 
+      std::string("/path/a.out")).c_str(), exe)) {
+      path = exe;
+    }
   }
   #endif
   return path;

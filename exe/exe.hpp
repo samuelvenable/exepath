@@ -26,4 +26,4 @@
 
 #include <string>
 
-std::string get_executable_path();
+std::string get_executable_path(int process_id = -1);
