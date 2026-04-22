@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     if (!failed) {
       printf("get_executable_path(%d) result: %s\n", (int)process_id[i], exe.c_str());
     } else {
-      printf("get_executable_path(%d) error: %s\n", (int)process_id[i], strerror(errno));
+      //printf("get_executable_path(%d) error: %s\n", (int)process_id[i], strerror(errno));
     }
   }
   return 0;
