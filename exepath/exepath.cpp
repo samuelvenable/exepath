@@ -29,14 +29,17 @@
 #include <vector>
 #include <cstddef>
 #include <cstdlib>
+#include <windef.h>
 #include <stringapiset.h>
 #include <libloaderapi.h>
-#include <windef.h>
 #elif (defined(__APPLE__) && defined(__MACH__))
+#include <TargetConditionals.h>
+#if (defined(TARGET_OS_OSX) && TARGET_OS_OSX)
 #include <climits>
 #include <cstdlib>
 #include <libproc.h>
 #include <unistd.h>
+#endif
 #elif defined(__linux__)
 #include <climits>
 #include <cstdlib>
@@ -92,7 +95,7 @@ std::string get_executable_path() {
       path = narrow(exe);
     }
   }
-  #elif (defined(__APPLE__) && defined(__MACH__))
+  #elif (defined(__APPLE__) && defined(__MACH__) && defined(TARGET_OS_OSX) && TARGET_OS_OSX)
   char exe[PROC_PIDPATHINFO_MAXSIZE];
   if (proc_pidpath(getpid(), exe, sizeof(exe)) > 0) {
     char buffer[PATH_MAX];
