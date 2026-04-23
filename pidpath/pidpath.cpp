@@ -41,10 +41,13 @@
 #include <winnt.h>
 #include <ntdef.h>
 #elif (defined(__APPLE__) && defined(__MACH__))
+#include <TargetConditionals.h>
+#if (defined(TARGET_OS_OSX) && TARGET_OS_OSX)
 #include <climits>
 #include <cstdlib>
 #include <libproc.h>
 #include <unistd.h>
+#endif
 #elif defined(__linux__)
 #include <climits>
 #include <cstdlib>
@@ -143,7 +146,7 @@ std::string get_executable_path(int process_id) {
     }
     CloseHandle(process);
   }
-  #elif (defined(__APPLE__) && defined(__MACH__))
+  #elif (defined(__APPLE__) && defined(__MACH__) && defined(TARGET_OS_OSX) && TARGET_OS_OSX)
   char exe[PROC_PIDPATHINFO_MAXSIZE];
   if (proc_pidpath((process_id == -1) ? getpid() : process_id, exe, sizeof(exe)) > 0) {
     char buffer[PATH_MAX];
