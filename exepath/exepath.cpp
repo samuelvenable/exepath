@@ -37,7 +37,6 @@
 #include <climits>
 #include <cstdlib>
 #include <mach-o/dyld.h>
-#endif
 #elif defined(__linux__)
 #include <climits>
 #include <cstdlib>
