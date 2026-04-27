@@ -28,6 +28,6 @@
 
 namespace exepath {
 
-std::string get_executable_path();
+  std::string get_executable_path();
 
 } // namespace exepath
