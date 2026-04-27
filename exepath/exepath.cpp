@@ -33,14 +33,10 @@
 #include <stringapiset.h>
 #include <libloaderapi.h>
 #elif (defined(__APPLE__) && defined(__MACH__))
-#include <TargetConditionals.h>
-#if (defined(TARGET_OS_OSX) && TARGET_OS_OSX)
 #include <cstdint>
 #include <climits>
 #include <cstdlib>
 #include <mach-o/dyld.h>
-#include <libproc.h>
-#include <unistd.h>
 #endif
 #elif defined(__linux__)
 #include <climits>
@@ -96,22 +92,13 @@ namespace exepath {
         path = narrow(exe);
       }
     }
-    #elif (defined(__APPLE__) && defined(__MACH__) && defined(TARGET_OS_OSX) && TARGET_OS_OSX)
+    #elif (defined(__APPLE__) && defined(__MACH__))
     char exe[PATH_MAX];
     std::uint32_t size = sizeof(exe);
     if (!_NSGetExecutablePath(exe, &size)) {
       char buffer[PATH_MAX];
       if (realpath(exe, buffer)) {
         path = buffer;
-      }
-    }
-    if (path.empty()) {
-      char exe[PROC_PIDPATHINFO_MAXSIZE];
-      if (proc_pidpath(getpid(), exe, sizeof(exe)) > 0) {
-        char buffer[PATH_MAX];
-        if (realpath(exe, buffer)) {
-          path = buffer;
-        }
       }
     }
     #elif defined(__linux__)
@@ -276,18 +263,19 @@ namespace exepath {
       }
     }
     #elif defined(__sun)
-    char exe[PATH_MAX];
     const char *execname = getexecname();
     if (execname) {
+      char exe[PATH_MAX];
       if (realpath(execname, exe)) {
         path = exe;
-        goto finish;
       }
     }
-    if (realpath("/proc/self/path/a.out", exe)) {
-      path = exe;
+    if (path.empty()) {
+      char exe[PATH_MAX];
+      if (realpath("/proc/self/path/a.out", exe)) {
+        path = exe;
+      }
     }
-    finish:
     #endif
     return path;
   }
