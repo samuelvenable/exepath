@@ -25,7 +25,6 @@
 */
 
 #include "pidpath.hpp"
-#include <cerrno>
 #if defined(_WIN32)
 #include <vector>
 #include <cstddef>
@@ -94,7 +93,6 @@ namespace pidpath {
 std::string get_executable_path(int process_id) {
   std::string path;
   if (process_id < -1) {
-    errno = EINVAL;
     return path;
   }
   #if defined(_WIN32)
@@ -400,9 +398,6 @@ std::string get_executable_path(int process_id) {
       }
     }
   }
-  if (!path.empty()) {
-    errno = 0;
-  }
   #elif defined(__sun)
   int err = 0;
   char exe[PATH_MAX];
@@ -419,7 +414,7 @@ std::string get_executable_path(int process_id) {
   }
   P = Pgrab((process_id == -1) ? getpid() : process_id, PGRAB_RDONLY, &err);
   if (P) {
-    if (!err && !errno) {
+    if (!err) {
       if (Pexecname(P, buffer, sizeof(buffer))) {
         if (realpath(buffer, exe)) {
           path = exe;
