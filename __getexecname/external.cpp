@@ -97,7 +97,7 @@ const char *__getexecname(int pid) {
     return nullptr;
   }
   #if defined(_WIN32)
-  auto resolve_symbolic_links(std::wstring wstr) {
+  auto resolve_symbolic_links = [](std::wstring wstr) {
     wchar_t path[MAX_PATH];
     HANDLE hFile = CreateFileW(wstr.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
     if (hFile != INVALID_HANDLE_VALUE) {
