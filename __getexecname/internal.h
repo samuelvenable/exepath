@@ -24,4 +24,4 @@
  
 */
 
-const char *__getexecname();
+const char *__getexecname(void);
