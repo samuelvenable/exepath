@@ -24,7 +24,7 @@
  
 */
 
-#include "getexecname.hpp"
+#include "internal.h"
 #include <string>
 #if defined(_WIN32)
 #include <vector>
