@@ -82,7 +82,7 @@ const char *__getexecname(void) {
     wchar_t path[MAX_PATH];
     HANDLE hFile = CreateFileW(wstr.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
     if (hFile != INVALID_HANDLE_VALUE) {
-      DWORD result = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, FILE_NAME_NORMALIZED);
+      DWORD result = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, 0);
       if (result) {
         if (wcslen(path) >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\') {
           return std::wstring(path + 4, (std::size_t)(path + result));
