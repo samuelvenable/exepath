@@ -24,7 +24,8 @@
  
 */
 
-#include "exepathex.hpp"
+#include "external.h"
+#include <string>
 #if defined(_WIN32)
 #include <vector>
 #include <cstddef>
