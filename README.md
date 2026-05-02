@@ -20,10 +20,13 @@ The OpenBSD function verifies the executable path names it guesses, by checking 
 If the executable file has mulitple hard links pointing to it on disk, and `argv[0]` was modified to be a different hard link than the location that spawned the process, and that hard link still points to the same file on disk that the process spawned from, the path name returned could be one different than the path name the process spawned from.
 
 ```c
+// pseudocode
 #include <__getexecname/internal.h>
 const char *internal = __getexecname(void);
 ```
+
 ```c
+// pseudocode
 #include <__getexecname/external.h>
 const char *external = __getexecname(int pid = -1);
 ```
