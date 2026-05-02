@@ -107,9 +107,9 @@ const char *__getexecname(int pid) {
       DWORD len = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, 0);
       if (len) {
         if (wcslen(path) >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\') {
-          result = std::wstring(path + 4, (std::size_t)(path + len));
+          result = std::wstring(path + 4);
         } else {
-          result = std::wstring(path, (std::size_t)(path + len));
+          result = std::wstring(path);
         }
       }
       CloseHandle(hFile);
