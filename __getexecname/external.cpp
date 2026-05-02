@@ -98,19 +98,21 @@ const char *__getexecname(int pid) {
   }
   #if defined(_WIN32)
   auto resolve_symbolic_links = [](std::wstring wstr) {
+    std::wstring result;
     wchar_t path[MAX_PATH];
     HANDLE hFile = CreateFileW(wstr.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
     if (hFile != INVALID_HANDLE_VALUE) {
-      DWORD result = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, 0x0);
+      DWORD result = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, 0);
       if (result) {
         if (wcslen(path) >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\') {
-          return std::wstring(path + 4, (std::size_t)(path + result));
+          result = std::wstring(path + 4, (std::size_t)(path + result));
         } else {
-          return std::wstring(path, (std::size_t)(path + result));
+          result = std::wstring(path, (std::size_t)(path + result));
         }
       }
+      CloseHandle(hFile);
     }
-    return std::wstring("");
+    return result;
   };
   auto narrow = [](std::wstring wstr) {
     if (wstr.empty()) return std::string("");
