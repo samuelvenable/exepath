@@ -24,7 +24,7 @@
  
 */
 
-#include "pidpath.hpp"
+#include "exepathex.hpp"
 #if defined(_WIN32)
 #include <vector>
 #include <cstddef>
@@ -88,7 +88,7 @@
 #include <unistd.h>
 #endif
 
-namespace pidpath {
+namespace exepathex {
 
   std::string get_executable_path(int process_id) {
     std::string path;
@@ -439,4 +439,4 @@ namespace pidpath {
     return path;
   }
 
-} // namespace pidpath
+} // namespace exepathex
