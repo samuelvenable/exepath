@@ -24,7 +24,8 @@
  
 */
 
-#include "getexepath.hpp"
+#include "getexecname.hpp"
+#include <string>
 #if defined(_WIN32)
 #include <vector>
 #include <cstddef>
@@ -58,7 +59,6 @@
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #elif defined(__OpenBSD__)
-#include <vector>
 #include <sstream>
 #include <cstddef>
 #include <climits>
