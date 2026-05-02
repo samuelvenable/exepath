@@ -13,7 +13,7 @@ When returning the path name to the current executable, it is recommended to cal
 
 On Solaris and illumos, there are certain conditions where you may need a process filesystem mounted in the current session in order for the function to not fail and return a null pointer. Linux requires the process filesystem mounted in the current session for this function to not fail and return a null pointer, under all circumstances. 
 
-OpenBSD relies on `libkvm` calls to make an attempt at guessing the executable path name, and be aware this platform has the most failure cases, where the function will return a null poiner; OpenBSD is the least reliable platform, due to not having on platform-provided API, thus causing the need to write one ourselves using workarounds.
+OpenBSD relies on `libkvm` calls to make an attempt at guessing the executable path name, and be aware this platform has the most failure cases, where the function will return a null poiner; OpenBSD is the least reliable platform, due to not having a platform-provided API, thus causing the need to write one ourselves using workarounds.
 
 The OpenBSD function verifies the executable path names it guesses, by checking the `ino_t` and `dev_t` and seeing if they match up with the ones provided by `libkvm`, and this will guarantee, whenever the function succeeds, and does not return a null pointer, it will return a valid hard link to the correct executable file, without erroneous results. 
 
