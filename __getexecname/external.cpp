@@ -28,9 +28,11 @@ SOFTWARE.
 #include <string>
 #if defined(_WIN32)
 #include <vector>
+#include <cwchar>
 #include <cstddef>
 #include <cstdlib>
 #include <windef.h>
+#include <fileapi.h>
 #include <stringapiset.h>
 #include <processthreadsapi.h>
 #include <securitybaseapi.h>
@@ -95,6 +97,21 @@ const char *__getexecname(int pid) {
     return nullptr;
   }
   #if defined(_WIN32)
+  auto resolve_symbolic_links(std::wstring wstr) {
+    wchar_t path[MAX_PATH];
+    HANDLE hFile = CreateFileW(wstr.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+    if (hFile != INVALID_HANDLE_VALUE) {
+      DWORD result = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, FILE_NAME_NORMALIZED);
+      if (result) {
+        if (wcslen(path) >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\') {
+          return std::wstring(path + 4, (std::size_t)(path + result));
+        } else {
+          return std::wstring(path, (std::size_t)(path + result));
+        }
+      }
+    }
+    return std::wstring("");
+  }
   auto narrow = [](std::wstring wstr) {
     if (wstr.empty()) return std::string("");
     int nbytes = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), nullptr, 0, nullptr, nullptr);
@@ -127,7 +144,8 @@ const char *__getexecname(int pid) {
     if (GetModuleFileNameW(nullptr, buffer, sizeof(buffer))) {
       wchar_t exe[MAX_PATH];
       if (_wfullpath(exe, buffer, MAX_PATH)) {
-        path = narrow(exe);
+        std::wstring resolved = resolve_symbolic_links(exe);
+        path = narrow(resolved);
       }
     }
   } else {
@@ -140,7 +158,8 @@ const char *__getexecname(int pid) {
     if (QueryFullProcessImageNameW(process, 0, buffer, &size)) {
       wchar_t exe[MAX_PATH];
       if (_wfullpath(exe, buffer, MAX_PATH)) {
-        path = narrow(exe);
+        std::wstring resolved = resolve_symbolic_links(exe);
+        path = narrow(resolved);
       }
     }
     CloseHandle(process);
