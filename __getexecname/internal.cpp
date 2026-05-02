@@ -73,7 +73,7 @@
 #include <cstdlib>
 #endif
 
-const char *__getexecname() {
+const char *__getexecname(void) {
   std::string path;
   #if defined(_WIN32)
   auto narrow = [](std::wstring wstr) {
