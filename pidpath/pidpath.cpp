@@ -320,8 +320,8 @@ namespace pidpath {
       }
     }
     kvm_close(kd);
-    std::string argv0;
     if (!buffer.empty()) {
+      std::string argv0;
       fallback:
       std::size_t slash_pos = buffer.find('/');
       std::size_t colon_pos = buffer.find(':');
