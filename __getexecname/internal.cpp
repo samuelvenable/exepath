@@ -88,7 +88,11 @@ const char *__getexecname(void) {
     if (hFile && hFile != INVALID_HANDLE_VALUE) {
       DWORD len = GetFinalPathNameByHandleW(hFile, path, MAX_PATH, 0);
       if (len) {
-        result = path;
+        if (wcslen(path) >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\') {
+          result = path + 4;
+        } else {
+          result = path;
+        }
       }
       CloseHandle(hFile);
     }
