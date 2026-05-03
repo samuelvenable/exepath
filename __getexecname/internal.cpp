@@ -71,7 +71,7 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <unistd.h>
 #include <kvm.h>
-#elif defined(__sun)
+#elif (defined(__sun) && defined(__SVR4))
 #include <climits>
 #include <cstdlib>
 #endif
@@ -279,7 +279,7 @@ const char *__getexecname(void) {
       }
     }
   }
-  #elif defined(__sun)
+  #elif (defined(__sun) && defined(__SVR4))
   const char *execname = getexecname();
   if (execname) {
     char exe[PATH_MAX];
